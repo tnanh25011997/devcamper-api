@@ -32,32 +32,47 @@ exports.getBootcamp = asyncHandler(async (req, res, next) => {
 // @desc    Create a new bootcamp
 // @route   POST /api/v1/bootcamps
 // @access  Private
-exports.createBootcamp = async (req, res, next) => {
-    try {
-        const bootcamp = await Bootcamp.create(req.body);
-        res.status(201).json({
-            success: true,
-            data: bootcamp
-        });
-    } catch (error) {
-        next(error);
+exports.createBootcamp = asyncHandler(async (req, res, next) => {
+    //add user to req.body
+    req.body.user = req.user.id;
+
+    //check for publish bootcamp
+    const publishBootcamp = await Bootcamp.findOne({ user: req.user.id });
+
+    //if not admin, can add 1
+
+    if (publishBootcamp && req.user.role !== 'admin') {
+        return next(new ErrorResponse(`The User with ID ${req.user.id}`), 400);
     }
 
-}
+    const bootcamp = await Bootcamp.create(req.body);
+    res.status(201).json({
+        success: true,
+        data: bootcamp
+    });
+
+
+});
 
 // @desc    Update a bootcamp
 // @route   PUT /api/v1/bootcamps/:id
 // @access  Private
 exports.updateBootcamp = asyncHandler(async (req, res, next) => {
 
-    const bootcamp = await Bootcamp.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true
-    });
+    let bootcamp = await Bootcamp.findById(req.params.id);
     if (!bootcamp) {
         return next(new ErrorResponse(`Bootcamp not found with id of ${req.params.id}`, 404));
 
     }
+    //make sure owner
+    if (bootcamp.user.toString() != req.user.id && req.user.role !== 'admin') {
+        return next(new ErrorResponse(`Not owner`, 401));
+    }
+
+    bootcamp = await Bootcamp.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true
+    })
     res.status(200).json({ success: true, data: bootcamp });
 
 
